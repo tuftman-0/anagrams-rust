@@ -3,6 +3,19 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+// Helper function to print the letter counts as a readable string
+fn print_key(counts: &[u8; 26]) {
+    print!("Letters: ");
+    for (i, &count) in counts.iter().enumerate() {
+        let letter = (b'a' + i as u8) as char;
+        for _ in 0..count {
+            print!("{}", letter);
+        }
+    }
+    print!(" ");
+}
+
+
 fn build_map_from_file <P: AsRef<Path>>(
     filename: P,
     target_counts: &[u8; 26]
@@ -69,14 +82,3 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-// Helper function to print the letter counts as a readable string
-fn print_key(counts: &[u8; 26]) {
-    print!("Letters: ");
-    for (i, &count) in counts.iter().enumerate() {
-        let letter = (b'a' + i as u8) as char;
-        for _ in 0..count {
-            print!("{}", letter);
-        }
-    }
-    print!(" ");
-}
