@@ -16,6 +16,17 @@ fn print_key(counts: &[u8; 26]) {
 }
 
 
+struct WordGroup {
+    counts: [u8; 26],
+    words: Vec<String>,
+    len: usize,
+}
+
+struct RepeatedGroup<'a> {
+    group: &'a WordGroup,
+    reps: usize,
+}
+
 fn build_map_from_file <P: AsRef<Path>>(
     filename: P,
     target_counts: &[u8; 26]
@@ -33,8 +44,8 @@ fn build_map_from_file <P: AsRef<Path>>(
         if !fits_inside(target_counts, &counts) { continue; }
 
         map.entry(counts)
-            .or_insert_with(Vec::new)
-            .push(word)
+           .or_default()
+           .push(word)
     }
 
     Ok(map)
@@ -60,24 +71,147 @@ fn get_letter_counts(word: &str) -> [u8; 26] {
     counts
 }
 
+fn build_word_groups_from_map(
+    map: HashMap<[u8; 26], Vec<String>>,
+) -> Vec<WordGroup> {
+    map.into_iter()
+        .map(|(counts, words)| WordGroup {
+            len: counts.iter().map(|&c| c as usize).sum(),
+            counts,
+            words,
+        })
+        .collect()
+}
+
+fn find_anagrams<'a>(
+    target: &mut [u8; 26],
+    length: usize,
+    remaining: &[&'a WordGroup],
+    combo: &mut Vec<RepeatedGroup<'a>>,
+    _solution: &mut Vec<String>,
+
+) {
+    if length == 0 {
+        let mut buffer = Vec::new();
+        expand_solution(combo, &mut buffer);
+        return;
+    }
+
+    for (i, &wg) in remaining.iter().enumerate() {
+        // subtract wordgroup's letters from target
+        (0..26).for_each(|j| { target[j] -= wg.counts[j]; });
+        // add group to our running combo (increment reps if last group is the same)
+        if combo.last().is_some_and(|last| std::ptr::eq(last.group, wg)) {
+            combo.last_mut().unwrap().reps += 1;
+        } else {
+            combo.push(RepeatedGroup { group: wg, reps: 1 })
+        }
+
+        let filtered: Vec<&WordGroup> = remaining [i..]
+            .iter()
+            .copied()
+            .filter(|wg2| fits_inside(target, &wg2.counts))
+            .collect();
+
+        find_anagrams(
+            target,
+            length - wg.len,
+            &filtered,
+            combo,
+            _solution,
+        );
+
+        // remove group from our running combo (decrement reps if last group has more than 1 rep)
+        if combo.last_mut().unwrap().reps > 1 {
+            combo.last_mut().unwrap().reps -= 1;
+        } else {
+            combo.pop();
+        }
+        // add wordgroup's letters back to target
+        (0..26).for_each(|j| { target[j] += wg.counts[j]; });
+    }
+
+}
+
+/// Expand one *primitive* solution (the `combo` of `RepeatedGroup`s) into *all* real anagram sentences.
+/// Uses `buffer` to accumulate one sentence at a time and prints each when complete.
+fn expand_solution(
+    combo: &[RepeatedGroup<'_>],
+    buffer: &mut Vec<String>,
+) {
+    // Base case: no more groups ⇒ print what’s in buffer (joined with spaces)
+    if combo.is_empty() {
+        if !buffer.is_empty() {
+            println!("{}", buffer.join(" "));
+        }
+        return;
+    }
+
+    // Destructure the first group
+    let RepeatedGroup { group: wg, reps } = &combo[0];
+    // Recurse into the helper that picks `reps` words from wg.words,
+    // then continues with the rest of the groups
+    choose_words(&wg.words, *reps, buffer, &combo[1..]);
+}
+
+/// A helper function for choosing combinations of `words` with `reps` repetitions
+/// Recursively choose `reps` words (with repetition allowed, non-decreasing index)
+/// from `words`, appending each to `buffer`. When reps hits 0, move on to `rest`.
+fn choose_words(
+    words: &[String],
+    reps: usize,
+    buffer: &mut Vec<String>,
+    rest: &[RepeatedGroup<'_>],
+) {
+    if reps == 0 {
+        return expand_solution(rest, buffer);
+    }
+    for (i, word) in words.iter().enumerate() {
+        buffer.push(word.clone());
+        choose_words(&words[i..], reps - 1, buffer, rest);
+        buffer.pop();
+    }
+}
+
 
 
 fn main() -> std::io::Result<()> {
     let default_file = "/home/josh/.local/bin/words.txt";
-    let input = "abracadabra";
-    let target = get_letter_counts(input);
+    let input = "joshuamartin";
+    let mut target = get_letter_counts(input);
+    let length = target.iter().map(|&c| c as usize).sum();
+
 
     // Use the ? operator to handle potential errors
     let wordmap = build_map_from_file(default_file, &target)?;
+    let mut wordgroups: Vec<WordGroup> = build_word_groups_from_map(wordmap);
+    wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
+    let group_refs: Vec<&WordGroup> = wordgroups.iter().collect();
 
-    // Iterate through key-value pairs
-    for (key, val) in wordmap.iter() {
-        // Print the letters that make up this key
-        print_key(key);
+    // 3) Pre-allocate your combo buffer:
+    //    Worst‐case depth is `length` (one letter per group).
+    let mut combo_buffer: Vec<RepeatedGroup> = Vec::with_capacity(length);
 
-        // Print the words for this combination
-        println!(": {:?}", val);
-    }
+    // 4) Pre-allocate your solution buffer:
+    //    Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
+    let mut solution_buffer: Vec<String> = Vec::with_capacity(length);
+
+    find_anagrams(
+        &mut target,
+        length,
+        &group_refs,
+        &mut combo_buffer,
+        &mut solution_buffer
+    );
+
+    // // Iterate through key-value pairs
+    // for (key, val) in wordmap.iter() {
+    //     // Print the letters that make up this key
+    //     print_key(key);
+
+    //     // Print the words for this combination
+    //     println!(": {:?}", val);
+    // }
 
     Ok(())
 }
