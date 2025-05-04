@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 // Helper function to print the letter counts as a readable string
-fn print_key(counts: &[u8; 26]) {
+fn _print_key(counts: &[u8; 26]) {
     print!("Letters: ");
     for (i, &count) in counts.iter().enumerate() {
         let letter = (b'a' + i as u8) as char;
@@ -88,12 +88,11 @@ fn find_anagrams<'a>(
     length: usize,
     remaining: &[&'a WordGroup],
     combo: &mut Vec<RepeatedGroup<'a>>,
-    _solution: &mut Vec<String>,
+    solution: &mut Vec<String>,
 
 ) {
     if length == 0 {
-        let mut buffer = Vec::new();
-        expand_solution(combo, &mut buffer);
+        expand_solution(combo, solution);
         return;
     }
 
@@ -118,7 +117,7 @@ fn find_anagrams<'a>(
             length - wg.len,
             &filtered,
             combo,
-            _solution,
+            solution,
         );
 
         // remove group from our running combo (decrement reps if last group has more than 1 rep)
