@@ -1,7 +1,8 @@
-use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, self, Read};
+use std::env;
 
 // Helper function to print the letter counts as a readable string
 fn _print_key(counts: &[u8; 26]) {
@@ -141,7 +142,7 @@ fn find_anagrams<'a>(
 
 }
 
-/// Expand one *primitive* solution (the `combo` of `RepeatedGroup`s) into *all* real anagram sentences.
+/// Expand one *primitive* solution (the `combo` of `RepeatedGroup`s) into all real anagram sentences.
 /// Uses `buffer` to accumulate one sentence at a time and prints each when complete.
 fn expand_solution(
     combo: &[RepeatedGroup<'_>],
@@ -155,16 +156,11 @@ fn expand_solution(
         return;
     }
 
-    // Destructure the first group
     let RepeatedGroup { group: wg, reps } = &combo[0];
-    // Recurse into the helper that picks `reps` words from wg.words,
-    // then continues with the rest of the groups
     choose_words(&wg.words, *reps, buffer, &combo[1..]);
 }
 
 /// A helper function for choosing combinations of `words` with `reps` repetitions
-/// Recursively choose `reps` words (with repetition allowed, non-decreasing index)
-/// from `words`, appending each to `buffer`. When reps hits 0, move on to `rest`.
 fn choose_words(
     words: &[String],
     reps: usize,
@@ -182,16 +178,58 @@ fn choose_words(
 }
 
 
+// Returns (wordlist_path, input_string)
+fn parse_args() -> (String, String) {
+    // Default wordlist and empty inputs
+    let mut wordlist = "/home/josh/.local/bin/words.txt".to_string();
+    let mut inputs: Vec<String> = Vec::new();
+
+    // Skip argv[0]
+    let mut args = env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-f" | "--file" => {
+                // Next argument must be the filename
+                wordlist = args
+                    .next()
+                    .unwrap_or_else(|| {
+                        eprintln!("-f/--file requires a path");
+                        std::process::exit(1);
+                    });
+            }
+            s if s.starts_with('-') => {
+                eprintln!("Unknown option: {}", s);
+                std::process::exit(1);
+            }
+            other => {
+                // Positional input
+                inputs.push(other.to_owned());
+            }
+        }
+    }
+
+    // If the user provided words on the command line, join them.
+    // Otherwise, read everything from stdin into one string.
+    let input_string = if !inputs.is_empty() {
+        inputs.join(" ")
+    } else {
+        let mut buf = String::new();
+        io::stdin()
+            .read_to_string(&mut buf)
+            .expect("Failed to read from stdin");
+        buf.trim_end().to_string()
+    };
+
+    (wordlist, input_string)
+}
 
 fn main() -> std::io::Result<()> {
-    let default_file = "/home/josh/.local/bin/words.txt";
-    let input = "joshuamartin";
-    let mut target = get_letter_counts(input);
-    let length = target.iter().map(|&c| c as usize).sum();
+    let (wordlist_path, input) = parse_args();
+    let mut target_counts = get_letter_counts(&input);
+    let length = target_counts.iter().map(|&c| c as usize).sum();
 
 
-    // Use the ? operator to handle potential errors
-    let wordmap = build_map_from_file(default_file, &target)?;
+    let wordmap = build_map_from_file(wordlist_path, &target_counts)?;
     let mut wordgroups: Vec<WordGroup> = build_word_groups_from_map(wordmap);
     wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
     let group_refs: Vec<&WordGroup> = wordgroups.iter().collect();
@@ -214,7 +252,7 @@ fn main() -> std::io::Result<()> {
     input_buffers[0].extend(group_refs.iter().copied());
 
     find_anagrams(
-        &mut target,
+        &mut target_counts,
         length,
         &mut input_buffers,
         &mut combo_buffer,
