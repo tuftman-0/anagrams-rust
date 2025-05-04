@@ -86,7 +86,7 @@ fn build_word_groups_from_map(
 fn find_anagrams<'a>(
     target: &mut [u8; 26],
     length: usize,
-    remaining: &[&'a WordGroup],
+    input_buffers: &mut [Vec<&'a WordGroup>],
     combo: &mut Vec<RepeatedGroup<'a>>,
     solution: &mut Vec<String>,
 
@@ -95,6 +95,9 @@ fn find_anagrams<'a>(
         expand_solution(combo, solution);
         return;
     }
+
+    let (current_slice, rest_buffers) = input_buffers.split_at_mut(1);
+    let remaining: &[&WordGroup] = &current_slice[0]; 
 
     for (i, &wg) in remaining.iter().enumerate() {
         // subtract wordgroup's letters from target
@@ -106,16 +109,22 @@ fn find_anagrams<'a>(
             combo.push(RepeatedGroup { group: wg, reps: 1 })
         }
 
-        let filtered: Vec<&WordGroup> = remaining [i..]
-            .iter()
-            .copied()
-            .filter(|wg2| fits_inside(target, &wg2.counts))
-            .collect();
+
+        {
+            // clear & refill next_buf from remaining[i..]
+            let next_buf: &mut Vec<&WordGroup> = &mut rest_buffers[0];
+            next_buf.clear();
+            for &wg2 in &remaining[i..] {
+                if fits_inside(target, &wg2.counts) {
+                    next_buf.push(wg2);
+                }
+            }
+        }
 
         find_anagrams(
             target,
             length - wg.len,
-            &filtered,
+            rest_buffers,
             combo,
             solution,
         );
@@ -195,10 +204,19 @@ fn main() -> std::io::Result<()> {
     //    Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
     let mut solution_buffer: Vec<String> = Vec::with_capacity(length);
 
+    // max_depth = length (or a tighter estimate)
+    let max_depth = length;
+    let mut input_buffers: Vec<Vec<&WordGroup>> = Vec::with_capacity(max_depth + 1);
+    for _ in 0..=max_depth {
+        input_buffers.push(Vec::with_capacity(group_refs.len()));
+    }
+    // load the very first level with all your groups:
+    input_buffers[0].extend(group_refs.iter().copied());
+
     find_anagrams(
         &mut target,
         length,
-        &group_refs,
+        &mut input_buffers,
         &mut combo_buffer,
         &mut solution_buffer
     );
