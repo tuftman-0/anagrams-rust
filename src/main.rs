@@ -52,7 +52,10 @@ fn build_map_from_file <P: AsRef<Path>>(
     Ok(map)
 }
 
-fn fits_inside(target_counts: &[u8; 26], counts: &[u8; 26]) -> bool {
+fn fits_inside(
+    target_counts: &[u8; 26],
+    counts: &[u8; 26]
+) -> bool {
     for i in 0..26 {
         if counts[i] > target_counts[i] {
             return false;
@@ -89,7 +92,7 @@ fn find_anagrams<'a>(
     length: usize,
     input_buffers: &mut [Vec<&'a WordGroup>],
     combo: &mut Vec<RepeatedGroup<'a>>,
-    solution: &mut Vec<String>,
+    solution: &mut String,
 
 ) {
     if length == 0 {
@@ -146,12 +149,12 @@ fn find_anagrams<'a>(
 /// Uses `buffer` to accumulate one sentence at a time and prints each when complete.
 fn expand_solution(
     combo: &[RepeatedGroup<'_>],
-    buffer: &mut Vec<String>,
+    buffer: &mut String,
 ) {
     // Base case: no more groups ⇒ print what’s in buffer (joined with spaces)
     if combo.is_empty() {
         if !buffer.is_empty() {
-            println!("{}", buffer.join(" "));
+            println!("{}", buffer);
         }
         return;
     }
@@ -164,16 +167,18 @@ fn expand_solution(
 fn choose_words(
     words: &[String],
     reps: usize,
-    buffer: &mut Vec<String>,
+    buffer: &mut String,
     rest: &[RepeatedGroup<'_>],
 ) {
     if reps == 0 {
         return expand_solution(rest, buffer);
     }
     for (i, word) in words.iter().enumerate() {
-        buffer.push(word.clone());
+        let start = buffer.len();
+        buffer.push_str(word);
+        buffer.push(' ');
         choose_words(&words[i..], reps - 1, buffer, rest);
-        buffer.pop();
+        buffer.truncate(start);
     }
 }
 
@@ -234,13 +239,11 @@ fn main() -> std::io::Result<()> {
     wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
     let group_refs: Vec<&WordGroup> = wordgroups.iter().collect();
 
-    // 3) Pre-allocate your combo buffer:
-    //    Worst‐case depth is `length` (one letter per group).
+    // Worst‐case depth is `length` (one letter per group).
     let mut combo_buffer: Vec<RepeatedGroup> = Vec::with_capacity(length);
 
-    // 4) Pre-allocate your solution buffer:
-    //    Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
-    let mut solution_buffer: Vec<String> = Vec::with_capacity(length);
+    // Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
+    let mut solution_buffer = String::with_capacity(length);
 
     // max_depth = length (or a tighter estimate)
     let max_depth = length;
