@@ -237,7 +237,6 @@ fn main() -> std::io::Result<()> {
     let wordmap = build_map_from_file(wordlist_path, &target_counts)?;
     let mut wordgroups: Vec<WordGroup> = build_word_groups_from_map(wordmap);
     wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
-    let group_refs: Vec<&WordGroup> = wordgroups.iter().collect();
 
     // Worst‐case depth is `length` (one letter per group).
     let mut combo_buffer: Vec<RepeatedGroup> = Vec::with_capacity(length);
@@ -249,10 +248,10 @@ fn main() -> std::io::Result<()> {
     let max_depth = length;
     let mut input_buffers: Vec<Vec<&WordGroup>> = Vec::with_capacity(max_depth + 1);
     for _ in 0..=max_depth {
-        input_buffers.push(Vec::with_capacity(group_refs.len()));
+        input_buffers.push(Vec::with_capacity(length));
     }
     // load the very first level with all your groups:
-    input_buffers[0].extend(group_refs.iter().copied());
+    input_buffers[0].extend(wordgroups.iter());
 
     find_anagrams(
         &mut target_counts,
