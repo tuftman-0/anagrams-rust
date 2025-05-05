@@ -262,15 +262,6 @@ fn main() -> std::io::Result<()> {
         &mut solution_buffer
     );
 
-    // // Iterate through key-value pairs
-    // for (key, val) in wordmap.iter() {
-    //     // Print the letters that make up this key
-    //     print_key(key);
-
-    //     // Print the words for this combination
-    //     println!(": {:?}", val);
-    // }
-
     Ok(())
 }
 
