@@ -238,18 +238,19 @@ fn main() -> std::io::Result<()> {
     let mut wordgroups: Vec<WordGroup> = build_word_groups_from_map(wordmap);
     wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
 
-    // Worst‐case depth is `length` (one letter per group).
-    let mut combo_buffer: Vec<RepeatedGroup> = Vec::with_capacity(length);
-
-    // Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
-    let mut solution_buffer = String::with_capacity(length);
-
     // max_depth = length (or a tighter estimate)
     let max_depth = length;
     let mut input_buffers: Vec<Vec<&WordGroup>> = Vec::with_capacity(max_depth + 1);
     for _ in 0..=max_depth {
         input_buffers.push(Vec::with_capacity(length));
     }
+
+    // Worst‐case depth is `length` (one letter per group).
+    let mut combo_buffer: Vec<RepeatedGroup> = Vec::with_capacity(length);
+
+    // Worst‐case you print every letter as its own word + a space ⇒ ~2*length chars.
+    let mut solution_buffer = String::with_capacity(length);
+
     // load the very first level with all your groups:
     input_buffers[0].extend(wordgroups.iter());
 
