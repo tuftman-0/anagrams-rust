@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, self, Read};
 use std::env;
 
 // Helper function to print the letter counts as a readable string
-fn _print_key(counts: &[u8; 26]) {
+fn _print_counts(counts: &[u8; 26]) {
     print!("Letters: ");
     for (i, &count) in counts.iter().enumerate() {
         let letter = (b'a' + i as u8) as char;
