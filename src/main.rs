@@ -28,6 +28,29 @@ struct RepeatedGroup<'a> {
     reps: usize,
 }
 
+fn fits_inside(
+    target_counts: &[u8; 26],
+    counts: &[u8; 26]
+) -> bool {
+    for i in 0..26 {
+        if counts[i] > target_counts[i] {
+            return false;
+        }
+    }
+    true
+}
+
+fn get_letter_counts(word: &str) -> [u8; 26] {
+    let mut counts = [0u8; 26];
+    for c in word.chars() {
+        if c.is_ascii_alphabetic() {
+            let idx = (c.to_ascii_lowercase() as u8 - b'a') as usize;
+            counts[idx] += 1;
+        }
+    }
+    counts
+}
+
 fn build_map_from_file <P: AsRef<Path>>(
     filename: P,
     target_counts: &[u8; 26]
@@ -52,27 +75,8 @@ fn build_map_from_file <P: AsRef<Path>>(
     Ok(map)
 }
 
-fn fits_inside(
-    target_counts: &[u8; 26],
-    counts: &[u8; 26]
-) -> bool {
-    for i in 0..26 {
-        if counts[i] > target_counts[i] {
-            return false;
-        }
-    }
-    true
-}
 
-fn get_letter_counts(word: &str) -> [u8; 26] {
-    let mut counts = [0u8; 26];
-    for c in word.chars() {
-        if c.is_ascii_alphabetic() {
-            let idx = (c.to_ascii_lowercase() as u8 - b'a') as usize;
-            counts[idx] += 1;
-        }
     }
-    counts
 }
 
 fn build_word_groups_from_map(
