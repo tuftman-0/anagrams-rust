@@ -3,8 +3,6 @@ use std::path::Path;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::env;
-#[cfg(windows)]
-use std::io::{BufRead, BufReader};
 
 // Helper function to print the letter counts as a readable string
 fn _print_key(counts: &[u8; 26]) {
@@ -72,7 +70,7 @@ fn build_map_from_file <P: AsRef<Path>>(
     target_counts: &[u8; 26]
 ) -> std::io::Result<HashMap<[u8; 26], Vec<String>>> {
     let file = File::open(filename)?;
-    let reader = BufReader::new(file);
+    let reader = std::io::BufReader::new(file);
     let mut map: HashMap<[u8; 26], Vec<String>> = HashMap::new();
 
     for line in reader.lines() {
