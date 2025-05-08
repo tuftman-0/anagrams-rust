@@ -1,8 +1,10 @@
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, self, Read};
+use std::io::{self, Read};
 use std::env;
+#[cfg(windows)]
+use std::io::{BufRead, BufReader};
 
 // Helper function to print the letter counts as a readable string
 fn _print_key(counts: &[u8; 26]) {
@@ -51,6 +53,20 @@ fn get_letter_counts(word: &str) -> [u8; 26] {
     counts
 }
 
+/// Count only ASCII letters (ignoring apostrophes or others)
+fn get_letter_counts_bytes(word: &[u8]) -> [u8; 26] {
+    let mut counts = [0u8; 26];
+    for &b in word {
+        match b {
+            b'a'..=b'z' => counts[(b - b'a') as usize] += 1,
+            b'A'..=b'Z' => counts[(b - b'A') as usize] += 1,
+            _           => {}
+        }
+    }
+    counts
+}
+
+#[cfg(windows)]
 fn build_map_from_file <P: AsRef<Path>>(
     filename: P,
     target_counts: &[u8; 26]
@@ -75,8 +91,26 @@ fn build_map_from_file <P: AsRef<Path>>(
     Ok(map)
 }
 
+#[cfg(not(windows))]
+fn build_map_from_file <P: AsRef<Path>>(
+    filename: P,
+    target_counts: &[u8; 26]
+) -> std::io::Result<HashMap<[u8; 26], Vec<String>>> {
+    let file = File::open(filename)?;
+    let mmap = unsafe { memmap2::MmapOptions::new().map(&file)? };
+    let data: &[u8] = &mmap;
 
+    let mut map: HashMap<[u8; 26], Vec<String>> = HashMap::new();
+
+    for line in data.split(|&b| b == b'\n') {
+        if line.is_empty() { continue; }
+        let counts = get_letter_counts_bytes(line);
+        if !fits_inside(target_counts, &counts) { continue; }
+        let word = std::str::from_utf8(line).unwrap();
+        map.entry(counts).or_default().push(word.to_string());
     }
+
+    Ok(map)
 }
 
 fn build_word_groups_from_map(
@@ -96,11 +130,11 @@ fn find_anagrams<'a>(
     length: usize,
     input_buffers: &mut [Vec<&'a WordGroup>],
     combo: &mut Vec<RepeatedGroup<'a>>,
-    solution: &mut String,
+    solution_buffer: &mut String,
 
 ) {
     if length == 0 {
-        expand_solution(combo, solution);
+        expand_solution(combo, solution_buffer);
         return;
     }
 
@@ -134,7 +168,7 @@ fn find_anagrams<'a>(
             length - wg.len,
             rest_buffers,
             combo,
-            solution,
+            solution_buffer,
         );
 
         // remove group from our running combo (decrement reps if last group has more than 1 rep)
@@ -238,7 +272,9 @@ fn main() -> std::io::Result<()> {
     let length = target_counts.iter().map(|&c| c as usize).sum();
 
 
+    // let wordmap = build_map_from_file(wordlist_path, &target_counts)?;
     let wordmap = build_map_from_file(wordlist_path, &target_counts)?;
+    if wordmap.is_empty() { return Ok(()); }
     let mut wordgroups: Vec<WordGroup> = build_word_groups_from_map(wordmap);
     wordgroups.sort_by(|a, b| b.len.cmp(&a.len));
 
